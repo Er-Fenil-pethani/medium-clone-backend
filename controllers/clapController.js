@@ -1,6 +1,5 @@
 const db = require("../config/db")
 
-// ADD / INCREMENT CLAP
 exports.clap = (req, res) => {
     const userId = req.user.id
     const blogId = req.params.blogId
@@ -39,7 +38,6 @@ exports.clap = (req, res) => {
 }
 
 
-// REMOVE / DECREMENT CLAP
 exports.unclap = (req, res) => {
     const userId = req.user.id
     const blogId = req.params.blogId
@@ -58,7 +56,6 @@ exports.unclap = (req, res) => {
 }
 
 
-// GET TOTAL CLAPS FOR BLOG
 exports.getClaps = (req, res) => {
     const blogId = req.params.blogId
 

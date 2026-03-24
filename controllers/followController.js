@@ -3,7 +3,6 @@ const router = express.Router()
 const db = require("../config/db")
 const auth = require("../middleware/auth.middleware")
 
-// FOLLOW USER
 router.post("/follow/:userId", auth, (req, res) => {
     const followerId = req.user.id
     const followingId = req.params.userId
@@ -27,7 +26,6 @@ router.post("/follow/:userId", auth, (req, res) => {
 })
 
 
-// UNFOLLOW USER
 router.delete("/unfollow/:userId", auth, (req, res) => {
     const followerId = req.user.id
     const followingId = req.params.userId
@@ -46,7 +44,6 @@ router.delete("/unfollow/:userId", auth, (req, res) => {
 })
 
 
-// GET FOLLOWERS
 router.get("/followers/:userId", (req, res) => {
     const userId = req.params.userId
 
@@ -60,7 +57,6 @@ router.get("/followers/:userId", (req, res) => {
 })
 
 
-// GET FOLLOWING
 router.get("/following/:userId", (req, res) => {
     const userId = req.params.userId
 

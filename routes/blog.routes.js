@@ -3,11 +3,11 @@ const router = express.Router()
 const blogController = require("../controllers/blog.controller")
 const auth = require("../middleware/auth.middleware")
 
-router.post("/create", auth, blogController.createblog)
+router.post("/", auth, blogController.createblog)
 
 router.get("/", blogController.getblogs)
 
-router.get("/my", auth, blogController.getMyblogs)
+router.get("/me", auth, blogController.getMyblogs)
 
 router.get("/:id", blogController.getblogById)
 

@@ -4,12 +4,28 @@ exports.createblog = (req, res) => {
     const { title, content } = req.body
     const userId = req.user.id
 
+    let imagePath = null
+
+    if (req.files && req.files.image) {
+        const image = req.files.image
+        const fileName = Date.now() + "_" + image.name
+
+        image.mv("uploads/" + fileName, (err) => {
+            if (err) return res.status(500).send(err)
+        })
+
+        imagePath = "uploads/" + fileName
+    }
+
     const words = content.split(" ").length
     const reading_time = Math.ceil(words / 200)
 
-    const sql = "INSERT INTO blogs (title, content, user_id, reading_time) VALUES (?, ?, ?, ?)"
+    const sql = `
+        INSERT INTO blogs (title, content, user_id, reading_time, image)
+        VALUES (?, ?, ?, ?, ?)
+    `
 
-    db.query(sql, [title, content, userId, reading_time], (err) => {
+    db.query(sql, [title, content, userId, reading_time, imagePath], (err) => {
         if (err) return res.send(err)
 
         res.send("Blog Created")
@@ -20,6 +36,7 @@ exports.getblogs = (req, res) => {
     const page = parseInt(req.query.page) || 1
     const limit = parseInt(req.query.limit) || 5
     const search = req.query.search || ""
+    const sort = req.query.sort === "oldest" ? "ASC" : "DESC"
 
     const offset = (page - 1) * limit
 
@@ -28,6 +45,7 @@ exports.getblogs = (req, res) => {
             blogs.id,
             blogs.title,
             blogs.content,
+            blogs.image,
             blogs.reading_time,
             blogs.view_count,
             blogs.created_at,
@@ -40,7 +58,7 @@ exports.getblogs = (req, res) => {
         LEFT JOIN claps ON claps.blog_id = blogs.id
         WHERE blogs.title LIKE ? AND blogs.is_draft = false
         GROUP BY blogs.id, users.name
-        ORDER BY blogs.created_at DESC
+        ORDER BY blogs.created_at ${sort}
         LIMIT ? OFFSET ?
     `
 
@@ -50,6 +68,7 @@ exports.getblogs = (req, res) => {
         res.json({
             page,
             limit,
+            sort: sort === "ASC" ? "oldest" : "latest",
             data: result
         })
     })
@@ -117,9 +136,26 @@ exports.updateblog = (req, res) => {
         const words = content.split(" ").length
         const reading_time = Math.ceil(words / 200)
 
-        const updateSql = "UPDATE blogs SET title = ?, content = ?, reading_time = ? WHERE id = ?"
+        let imagePath = result[0].image
 
-        db.query(updateSql, [title, content, reading_time, id], (err) => {
+        if (req.files && req.files.image) {
+            const image = req.files.image
+            const fileName = Date.now() + "_" + image.name
+
+            image.mv("uploads/" + fileName, (err) => {
+                if (err) return res.status(500).send(err)
+            })
+
+            imagePath = "uploads/" + fileName
+        }
+
+        const updateSql = `
+            UPDATE blogs 
+            SET title = ?, content = ?, reading_time = ?, image = ?
+            WHERE id = ?
+        `
+
+        db.query(updateSql, [title, content, reading_time, imagePath, id], (err) => {
             if (err) return res.send(err)
 
             res.send("Blog Updated")
