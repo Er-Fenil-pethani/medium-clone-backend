@@ -3,7 +3,6 @@ const router = express.Router()
 const db = require("../config/db")
 const auth = require("../middleware/auth.middleware")
 
-// CREATE DRAFT
 router.post("/draft", auth, (req, res) => {
     const { title, content } = req.body
 
@@ -17,7 +16,6 @@ router.post("/draft", auth, (req, res) => {
     )
 })
 
-// UPDATE DRAFT
 router.put("/draft/:id", auth, (req, res) => {
     const { title, content } = req.body
 
@@ -31,7 +29,6 @@ router.put("/draft/:id", auth, (req, res) => {
     )
 })
 
-// PUBLISH
 router.post("/publish/:id", auth, (req, res) => {
     db.query(
         "UPDATE blogs SET is_draft=false, published_at=NOW() WHERE id=? AND user_id=?",
@@ -43,7 +40,6 @@ router.post("/publish/:id", auth, (req, res) => {
     )
 })
 
-// GET DRAFTS
 router.get("/drafts", auth, (req, res) => {
     db.query(
         "SELECT * FROM blogs WHERE user_id=? AND is_draft=true",

@@ -7,7 +7,6 @@ router.post("/", auth, blogController.createblog)
 
 router.get("/", blogController.getblogs)
 
-// NEW ROUTES (today’s features)
 router.get("/feed", auth, blogController.getFeed)
 router.get("/trending", blogController.getTrendingBlogs)
 router.get("/dashboard", auth, blogController.getDashboard)

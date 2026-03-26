@@ -10,7 +10,6 @@ const sendServerError = (res, err) => {
 
 const validateId = (value) => Number.isInteger(Number(value)) && Number(value) > 0
 
-// ✅ ADD COMMENT / REPLY
 exports.addComment = async (req, res) => {
     const { blogId, content, parent_comment_id } = req.body
     const userId = req.user.id
@@ -51,7 +50,6 @@ exports.addComment = async (req, res) => {
     }
 }
 
-// ✅ GET COMMENTS WITH REPLIES (1 LEVEL)
 exports.getComments = async (req, res) => {
     const blogId = req.params.blogId
 
@@ -144,7 +142,6 @@ exports.deleteComment = async (req, res) => {
     }
 }
 
-// CLAPS (unchanged, just kept your logic)
 exports.addClap = async (req, res) => {
     const commentId = req.params.id
     const userId = req.user.id
