@@ -7,69 +7,73 @@ exports.clap = (req, res) => {
     const checkSql = "SELECT count FROM claps WHERE user_id = ? AND blog_id = ?"
 
     db.query(checkSql, [userId, blogId], (err, result) => {
-        if (err) return res.send(err)
+        if (err) return res.status(500).send(err)
 
         if (result.length > 0) {
-            let current = result[0].count
-
-            if (current >= 50) {
-                return res.send("Max 50 claps reached")
+            if (result[0].count >= 50) {
+                return res.status(400).send("Max 50 claps reached")
             }
 
-            let newCount = Math.min(current + 2, 50)
-
-            const updateSql = "UPDATE claps SET count = ? WHERE user_id = ? AND blog_id = ?"
-
-            db.query(updateSql, [newCount, userId, blogId], (err) => {
-                if (err) return res.send(err)
-
-                res.send("Clapped")
-            })
+            db.query(
+                "UPDATE claps SET count = count + 1 WHERE user_id = ? AND blog_id = ?",
+                [userId, blogId],
+                (err) => {
+                    if (err) return res.status(500).send(err)
+                    res.send("Clap added")
+                }
+            )
         } else {
-            const insertSql = "INSERT INTO claps (user_id, blog_id, count) VALUES (?, ?, 2)"
-
-            db.query(insertSql, [userId, blogId], (err) => {
-                if (err) return res.send(err)
-
-                res.send("Clapped")
-            })
+            db.query(
+                "INSERT INTO claps (user_id, blog_id, count) VALUES (?, ?, 1)",
+                [userId, blogId],
+                (err) => {
+                    if (err) return res.status(500).send(err)
+                    res.send("First clap added")
+                }
+            )
         }
     })
 }
-
 
 exports.unclap = (req, res) => {
     const userId = req.user.id
     const blogId = req.params.blogId
 
-    const sql = `
-        UPDATE claps 
-        SET count = GREATEST(count - 1, 0)
-        WHERE user_id = ? AND blog_id = ?
-    `
+    db.query(
+        "SELECT count FROM claps WHERE user_id = ? AND blog_id = ?",
+        [userId, blogId],
+        (err, result) => {
+            if (err) return res.status(500).send(err)
 
-    db.query(sql, [userId, blogId], (err) => {
-        if (err) return res.send(err)
+            if (!result.length) return res.send("No claps")
 
-        res.send("Unclapped")
-    })
+            if (result[0].count <= 1) {
+                db.query(
+                    "DELETE FROM claps WHERE user_id = ? AND blog_id = ?",
+                    [userId, blogId],
+                    () => res.send("Claps removed")
+                )
+            } else {
+                db.query(
+                    "UPDATE claps SET count = count - 1 WHERE user_id = ? AND blog_id = ?",
+                    [userId, blogId],
+                    () => res.send("Clap removed")
+                )
+            }
+        }
+    )
 }
-
 
 exports.getClaps = (req, res) => {
     const blogId = req.params.blogId
 
-    const sql = `
-        SELECT SUM(count) AS total_claps 
-        FROM claps 
-        WHERE blog_id = ?
-    `
+    db.query(
+        "SELECT COALESCE(SUM(count),0) AS total_claps FROM claps WHERE blog_id = ?",
+        [blogId],
+        (err, result) => {
+            if (err) return res.status(500).send(err)
 
-    db.query(sql, [blogId], (err, result) => {
-        if (err) return res.send(err)
-
-        res.json({
-            totalClaps: result[0].total_claps || 0
-        })
-    })
+            res.json({ totalClaps: result[0].total_claps })
+        }
+    )
 }

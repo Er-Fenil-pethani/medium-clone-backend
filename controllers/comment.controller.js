@@ -10,24 +10,48 @@ const sendServerError = (res, err) => {
 
 const validateId = (value) => Number.isInteger(Number(value)) && Number(value) > 0
 
+// ✅ ADD COMMENT / REPLY
 exports.addComment = async (req, res) => {
-    const { blogId, content } = req.body
+    const { blogId, content, parent_comment_id } = req.body
     const userId = req.user.id
 
     if (!validateId(blogId) || !content || !content.trim()) {
         return res.status(400).json({ error: "blogId and content are required" })
     }
 
-    const sql = "INSERT INTO comments (blog_id, user_id, content) VALUES (?, ?, ?)"
+    let parentId = null
+
+    if (parent_comment_id) {
+        if (!validateId(parent_comment_id)) {
+            return res.status(400).json({ error: "Invalid parent_comment_id" })
+        }
+
+        const parent = await queryAsync(
+            "SELECT id FROM comments WHERE id = ? AND blog_id = ?",
+            [parent_comment_id, blogId]
+        )
+
+        if (!parent.length) {
+            return res.status(404).json({ error: "Parent comment not found" })
+        }
+
+        parentId = parent_comment_id
+    }
+
+    const sql = `
+        INSERT INTO comments (blog_id, user_id, content, parent_comment_id)
+        VALUES (?, ?, ?, ?)
+    `
 
     try {
-        await queryAsync(sql, [blogId, userId, content.trim()])
+        await queryAsync(sql, [blogId, userId, content.trim(), parentId])
         return res.status(201).json({ message: "Comment added" })
     } catch (err) {
         return sendServerError(res, err)
     }
 }
 
+// ✅ GET COMMENTS WITH REPLIES (1 LEVEL)
 exports.getComments = async (req, res) => {
     const blogId = req.params.blogId
 
@@ -35,14 +59,30 @@ exports.getComments = async (req, res) => {
         return res.status(400).json({ error: "Invalid blogId" })
     }
 
-    const sql = `SELECT comments.*, users.name
-        FROM comments
-        JOIN users ON comments.user_id = users.id
-        WHERE comments.blog_id = ?
-        ORDER BY comments.created_at DESC`
+    const sql = `
+        SELECT c.*, u.name
+        FROM comments c
+        JOIN users u ON c.user_id = u.id
+        WHERE c.blog_id = ?
+        ORDER BY c.created_at ASC
+    `
 
     try {
-        const result = await queryAsync(sql, [blogId])
+        const comments = await queryAsync(sql, [blogId])
+
+        const parentComments = comments.filter(c => !c.parent_comment_id)
+
+        const result = parentComments.map(parent => {
+            const replies = comments.filter(
+                c => c.parent_comment_id === parent.id
+            )
+
+            return {
+                ...parent,
+                replies
+            }
+        })
+
         return res.status(200).json(result)
     } catch (err) {
         return sendServerError(res, err)
@@ -58,10 +98,8 @@ exports.updateComment = async (req, res) => {
         return res.status(400).json({ error: "id and content are required" })
     }
 
-    const checkSql = "SELECT * FROM comments WHERE id = ?"
-
     try {
-        const comment = await queryAsync(checkSql, [id])
+        const comment = await queryAsync("SELECT * FROM comments WHERE id = ?", [id])
 
         if (!comment.length) {
             return res.status(404).json({ error: "Comment not found" })
@@ -71,8 +109,7 @@ exports.updateComment = async (req, res) => {
             return res.status(403).json({ error: "Not allowed" })
         }
 
-        const updateSql = "UPDATE comments SET content = ? WHERE id = ?"
-        await queryAsync(updateSql, [content.trim(), id])
+        await queryAsync("UPDATE comments SET content = ? WHERE id = ?", [content.trim(), id])
 
         return res.status(200).json({ message: "Comment updated" })
     } catch (err) {
@@ -88,10 +125,8 @@ exports.deleteComment = async (req, res) => {
         return res.status(400).json({ error: "Invalid id" })
     }
 
-    const checkSql = "SELECT * FROM comments WHERE id = ?"
-
     try {
-        const comment = await queryAsync(checkSql, [id])
+        const comment = await queryAsync("SELECT * FROM comments WHERE id = ?", [id])
 
         if (!comment.length) {
             return res.status(404).json({ error: "Comment not found" })
@@ -101,8 +136,7 @@ exports.deleteComment = async (req, res) => {
             return res.status(403).json({ error: "Not allowed" })
         }
 
-        const deleteSql = "DELETE FROM comments WHERE id = ?"
-        await queryAsync(deleteSql, [id])
+        await queryAsync("DELETE FROM comments WHERE id = ?", [id])
 
         return res.status(200).json({ message: "Comment deleted" })
     } catch (err) {
@@ -110,6 +144,7 @@ exports.deleteComment = async (req, res) => {
     }
 }
 
+// CLAPS (unchanged, just kept your logic)
 exports.addClap = async (req, res) => {
     const commentId = req.params.id
     const userId = req.user.id
@@ -118,24 +153,30 @@ exports.addClap = async (req, res) => {
         return res.status(400).json({ error: "Invalid comment id" })
     }
 
-    const checkSql = "SELECT * FROM comment_claps WHERE user_id = ? AND comment_id = ?"
-
     try {
-        const rows = await queryAsync(checkSql, [userId, commentId])
+        const rows = await queryAsync(
+            "SELECT * FROM comment_claps WHERE user_id = ? AND comment_id = ?",
+            [userId, commentId]
+        )
 
         if (rows.length) {
-            const currentClaps = rows[0].clap_count
-            if (currentClaps >= 50) {
+            if (rows[0].clap_count >= 50) {
                 return res.status(400).json({ error: "Max clap reached" })
             }
 
-            const updateSql = "UPDATE comment_claps SET clap_count = clap_count + 1 WHERE user_id = ? AND comment_id = ?"
-            await queryAsync(updateSql, [userId, commentId])
+            await queryAsync(
+                "UPDATE comment_claps SET clap_count = clap_count + 1 WHERE user_id = ? AND comment_id = ?",
+                [userId, commentId]
+            )
+
             return res.status(200).json({ message: "Clap added" })
         }
 
-        const insertSql = "INSERT INTO comment_claps (user_id, comment_id, clap_count) VALUES (?, ?, 1)"
-        await queryAsync(insertSql, [userId, commentId])
+        await queryAsync(
+            "INSERT INTO comment_claps (user_id, comment_id, clap_count) VALUES (?, ?, 1)",
+            [userId, commentId]
+        )
+
         return res.status(201).json({ message: "First clap added" })
     } catch (err) {
         return sendServerError(res, err)
@@ -149,10 +190,12 @@ exports.getClaps = async (req, res) => {
         return res.status(400).json({ error: "Invalid comment id" })
     }
 
-    const sql = "SELECT SUM(clap_count) AS totalClaps FROM comment_claps WHERE comment_id = ?"
-
     try {
-        const result = await queryAsync(sql, [commentId])
+        const result = await queryAsync(
+            "SELECT SUM(clap_count) AS totalClaps FROM comment_claps WHERE comment_id = ?",
+            [commentId]
+        )
+
         return res.status(200).json({ totalClaps: result[0].totalClaps || 0 })
     } catch (err) {
         return sendServerError(res, err)
@@ -167,10 +210,12 @@ exports.undoClap = async (req, res) => {
         return res.status(400).json({ error: "Invalid comment id" })
     }
 
-    const sql = "DELETE FROM comment_claps WHERE user_id = ? AND comment_id = ?"
-
     try {
-        await queryAsync(sql, [userId, commentId])
+        await queryAsync(
+            "DELETE FROM comment_claps WHERE user_id = ? AND comment_id = ?",
+            [userId, commentId]
+        )
+
         return res.status(200).json({ message: "Claps removed" })
     } catch (err) {
         return sendServerError(res, err)

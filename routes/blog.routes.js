@@ -7,12 +7,17 @@ router.post("/", auth, blogController.createblog)
 
 router.get("/", blogController.getblogs)
 
+// NEW ROUTES (today’s features)
+router.get("/feed", auth, blogController.getFeed)
+router.get("/trending", blogController.getTrendingBlogs)
+router.get("/dashboard", auth, blogController.getDashboard)
+
 router.get("/me", auth, blogController.getMyblogs)
 
 router.get("/:id", blogController.getblogById)
+router.get("/:id/related", blogController.getRelatedBlogs)
 
 router.put("/:id", auth, blogController.updateblog)
-
 router.delete("/:id", auth, blogController.deleteblog)
 
 module.exports = router
